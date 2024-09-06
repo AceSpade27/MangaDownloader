@@ -41,7 +41,7 @@ def send_email(subject, sender, recipient, password, attachment_path):
         msg.attach(part)
 
     # Send the email
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp_server:
+    with smtplib.SMTP_SSL(*email_server) as smtp_server:
         smtp_server.login(sender, password)
         smtp_server.sendmail(sender, recipient, msg.as_string())
 
