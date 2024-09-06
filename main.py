@@ -14,7 +14,7 @@ import traceback
 import zipfile
 import sys
 import dotenv
-
+rmr = '​'*10
 dotenv.load_dotenv()
 subject = "Kindle book"
 sender = os.getenv('EMAIL_ADDRESS')
@@ -148,7 +148,7 @@ for info in selected:
             if e.__class__ is requests.exceptions.HTTPError:
                 cs.print('[red1] ✖  Site errored out, trying again...[/red1]      ')
             else:
-                cs.print(f'[red1] ✖  Unknown error. Traceback ::    ')
+                cs.print(f'[red1] ✖  Unknown error. Traceback :: '+rmr)
                 trace = traceback.format_exc()
                 trace = '\n   '.join(trace.split('\n')[1:])
                 cs.print(f'[red1]{trace}[/]')
@@ -157,7 +157,7 @@ for info in selected:
         return ftype, path
     ftype, path = downloadit(info)
     dbg(ftype, path)
-    cs.print('[pink1 bold] [ ✓ ] Downloaded [/]          ')
+    cs.print('[pink1 bold] [ ✓ ] Downloaded [/]'+rmr)
     if not ftype in supported:
         cs.print('[pink1 bold]Converting book to mobi...[/]')
         mobi = os.path.join(dir_, f'{info[1]} ({info[0]}).epub'.translate({ord(c): None for c in '\\/:*?"\'<>|'}))
