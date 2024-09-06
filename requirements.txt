@@ -1,5 +1,5 @@
 bs4
 requests
 rich
-dotenv
+python-dotenv
 beaupy
