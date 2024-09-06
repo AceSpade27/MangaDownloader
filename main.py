@@ -168,7 +168,7 @@ for info in selected:
         mobi = path
     spin = spinners.Spinner(['[pink1 bold]Zipping[/] '+'[pink1]'+x+'[/]' for x in spinners.DOTS], '')
     spin.start()
-    with zipfile.ZipFile('book.zip', 'w') as zipf:
+    with zipfile.ZipFile('book.zip', 'w', zipfile.ZIP_DEFLATED, compresslevel=8) as zipf:
         zipf.write(mobi)
     spin.stop()
     cs.print('[pink1 bold] [ ✓ ] Zipped book succesfully[/]')
