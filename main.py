@@ -124,7 +124,7 @@ for info in selected:
             mobi = None
             link, ftype = downloadlink(info[2])
             files = [os.path.join(dir_, file) for file in existing if '.'.join(file.split('.')[:-1]) == f'{info[1]} ({info[0]})'.translate({ord(c): None for c in '\\/:*?"\'<>|'})]
-            if len(files > 0):
+            if len(files) > 0:
                 for f in files:
                     ftype = os.path.split(f)[-1]
                     if ftype in supported:
