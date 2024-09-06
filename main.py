@@ -14,7 +14,7 @@ import traceback
 import zipfile
 import sys
 import dotenv
-rmr = '​'*10
+rmr = '​'*19
 dotenv.load_dotenv()
 subject = "Kindle book"
 sender = os.getenv('EMAIL_ADDRESS')
@@ -52,7 +52,6 @@ def downloadlink(page):
     page_2 = requests.get('https://libgen.li/'+page)
     bs2 = bs4.BeautifulSoup(page_2.text, 'lxml')
     ftype = bs2.select_one('#tablelibgen tr td.valign-middle').text.split('Extension: ')[1].split(' ')[0].split('Libgen')[0]
-    open('hi.html','wb').write(page_2.content)
     download_page = bs2.select_one('#tablelibgen > tr > td.valign-middle > a').attrs['href']
     urldirect = True
     try:
@@ -71,7 +70,6 @@ def dbg(*values: object, sep: str | None = ' ', end: str | None = '\n'):
 def search(query: str):
     selector = '#tablelibgen > tbody tr'
     page = requests.get(f'https://libgen.li/index.php?req={quote_plus(query)}&columns%5B%5D=t&columns%5B%5D=a&columns%5B%5D=s&columns%5B%5D=y&columns%5B%5D=p&columns%5B%5D=i&objects%5B%5D=f&objects%5B%5D=e&objects%5B%5D=s&objects%5B%5D=a&objects%5B%5D=p&objects%5B%5D=w&topics%5B%5D=l&topics%5B%5D=c&topics%5B%5D=f&topics%5B%5D=s&res=25&covers=on&filesuns=all&columns%5B%5D=t&columns%5B%5D=a&columns%5B%5D=s&columns%5B%5D=y&columns%5B%5D=p&columns%5B%5D=i&objects%5B%5D=f&objects%5B%5D=e&objects%5B%5D=s&objects%5B%5D=a&objects%5B%5D=p&objects%5B%5D=w&topics%5B%5D=l&topics%5B%5D=c&topics%5B%5D=f&topics%5B%5D=s&res=100&covers=on&filesuns=all')
-    open('test.html', 'wb').write(page.content)
     bs = bs4.BeautifulSoup(page.text, 'lxml')
     manga = []
     elems = bs.select(selector)
