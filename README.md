@@ -2,9 +2,8 @@
 terminal app for downloading manga from libgen.li
 
 # installing
-just run
-`$ pip install -r requirements.py`
-and then change the values in the .env file
+download [calibre](https://calibre-ebook.com/download) and install it (probably also relaunch your terminal)  
+run `$ pip install -r requirements.py` and then change the values in the .env file
 
 # how to use
 `$ python main.py`  
