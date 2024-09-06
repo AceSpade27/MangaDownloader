@@ -12,7 +12,6 @@ from email.mime.base import MIMEBase
 from email import encoders
 import traceback
 import zipfile
-import re
 from time import perf_counter
 import sys
 import dotenv
