@@ -123,7 +123,7 @@ for info in selected:
             files = [os.path.join(dir_, file) for file in existing if '.'.join(file.split('.')[:-1]) == f'{info[1]} ({info[0]})'.translate({ord(c): None for c in '\\/:*?"\'<>|'})]
             if len(files) > 0:
                 for f in files:
-                    ftype = os.path.split(f)[-1]
+                    ftype = os.path.split(f)[-1].split('.')[-1]
                     if ftype in supported:
                         cs.print('[pink1 bold]Found manga in cache![/]')
                         mobi = f
