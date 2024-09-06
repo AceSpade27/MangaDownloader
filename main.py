@@ -13,7 +13,6 @@ from email import encoders
 import traceback
 import zipfile
 import sys
-import threading
 import dotenv
 
 dotenv.load_dotenv()
