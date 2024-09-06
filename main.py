@@ -146,7 +146,7 @@ for info in selected:
                             cs.print(f'[pink1]Downloading [/pink1] [white bold]{down}/{size}[/]', end='\r')
         except Exception as e:
             if e.__class__ is requests.exceptions.HTTPError:
-                cs.print('[red1] ✖  Site errored out, trying again...[/red1]      ')
+                cs.print('[red1] ✖  Site errored out, trying again...[/red1]'+rmr)
             else:
                 cs.print(f'[red1] ✖  Unknown error. Traceback :: '+rmr)
                 trace = traceback.format_exc()
