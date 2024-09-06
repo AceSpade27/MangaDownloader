@@ -12,9 +12,11 @@ from email.mime.base import MIMEBase
 from email import encoders
 import traceback
 import zipfile
+import re
+from time import perf_counter
 import sys
 import dotenv
-rmr = '​'*19
+rmr = '​'*30
 dotenv.load_dotenv()
 subject = "Kindle book"
 sender = os.getenv('EMAIL_ADDRESS')
@@ -44,6 +46,15 @@ def send_email(subject, sender, recipient, password, attachment_path):
     with smtplib.SMTP_SSL(*email_server) as smtp_server:
         smtp_server.login(sender, password)
         smtp_server.sendmail(sender, recipient, msg.as_string())
+def format_bytes(size):
+    # 2**10 = 1024
+    power = 2**10
+    n = 0
+    power_labels = {0 : '', 1: 'K', 2: 'M', 3: 'G', 4: 'T'}
+    while size > power:
+        size /= power
+        n += 1
+    return f"{size:.2f} {power_labels[n]}B"
 
 
 def printsep(): print('-'*(os.get_terminal_size().columns-70))
@@ -51,7 +62,6 @@ debug = False
 def downloadlink(page):
     page_2 = requests.get('https://libgen.li/'+page)
     bs2 = bs4.BeautifulSoup(page_2.text, 'lxml')
-    ftype = bs2.select_one('#tablelibgen tr td.valign-middle').text.split('Extension: ')[1].split(' ')[0].split('Libgen')[0]
     download_page = bs2.select_one('#tablelibgen > tr > td.valign-middle > a').attrs['href']
     urldirect = True
     try:
@@ -63,7 +73,7 @@ def downloadlink(page):
     except: pass
     if urldirect:
         downurl = 'https://libgen.li'+download_page
-    return downurl, ftype
+    return downurl
 def dbg(*values: object, sep: str | None = ' ', end: str | None = '\n'):
     if debug:
         print(*values, sep=sep, end=end)
@@ -88,6 +98,24 @@ def search(query: str):
             manga.append((series, title, url))
         except AttributeError: continue
     return manga
+def calculate_remaining_time(downloaded, secondstodown, downed, size):
+    # Calculate download speed in bytes per second
+    speed_bytes_per_second = downed / secondstodown
+    
+    # Calculate the amount of data left to download
+    remaining_data = size - downloaded
+    
+    # Calculate the remaining time in seconds
+    if speed_bytes_per_second > 0:
+        remaining_time_seconds = remaining_data / speed_bytes_per_second
+    else:
+        return '?m ?s'
+
+    # Convert seconds to minutes and seconds
+    minutes = int(remaining_time_seconds // 60)
+    seconds = int(remaining_time_seconds % 60)
+
+    return f"{minutes}m {seconds}s"
 cs = console.Console()
 cs.print('[pink1]Enter search query[/pink1] [bold white]::[/] ', end='')
 query = input('')
@@ -99,7 +127,7 @@ if len(manga) < 1:
     exit()
 
 items = [f'{info[1]} ({info[0]})' for info in manga]
-selected_items = select_multiple(items, tick_character=' ✓ ', pagination=True, page_size=10, minimal_count=1)
+selected_items = select_multiple(items, tick_character=' ✓ ', pagination=True, page_size=7, minimal_count=1)
 selected = []
 poss = {}
 for sel in selected_items:
@@ -113,35 +141,50 @@ for sel in selected_items:
 dir_ = 'manga'
 threads = []
 supported = ['epub', 'pdf', 'doc', 'docx', 'htm', 'html', 'rtf', 'txt', 'jpg', 'gif', 'bmp', 'png']
+def geteta(down, size, estimated_remaining_time=None):
+    status = f"[pink1]Downloading [/pink1] [white bold]{format_bytes(down)}/{format_bytes(size)}"
+    if estimated_remaining_time is not None:
+        status += f" (ETA: {estimated_remaining_time:.2f}s)"
+    status += '[/]'
+    print(status, end='\r')
 os.makedirs(dir_, exist_ok=True)
 for info in selected:
     existing = os.listdir(dir_)
     def downloadit(info):
         try:
-            mobi = None
-            link, ftype = downloadlink(info[2])
+            path = None
+            link = downloadlink(info[2])
             files = [os.path.join(dir_, file) for file in existing if '.'.join(file.split('.')[:-1]) == f'{info[1]} ({info[0]})'.translate({ord(c): None for c in '\\/:*?"\'<>|'})]
             if len(files) > 0:
                 for f in files:
                     ftype = os.path.split(f)[-1].split('.')[-1]
                     if ftype in supported:
                         cs.print('[pink1 bold]Found manga in cache![/]')
-                        mobi = f
+                        path = f
                         break
-            if not mobi:
-                path = os.path.join(dir_, f'{info[1]} ({info[0]}).{ftype}'.translate({ord(c): None for c in '\\/:*?"\'<>|'}))
-                cs.print('[pink1]Downloading [/pink1] [white bold]0/0[/]', end='\r')
+            if not path:
+                path = os.path.join(dir_, f'{info[1]} ({info[0]})'.translate({ord(c): None for c in '\\/:*?"\'<>|'}))
+                cs.print('[pink1]Downloading [/pink1] [white bold]0/0[/] (?m ?s)', end='\r')
                 down = 0
                 
-                with open(path, 'wb') as f:
-                    with requests.get(link, stream=True) as r:
-                        
-                        r.raise_for_status()
-                        size = r.headers.get('Content-Length')
+                with requests.get(link, stream=True) as r:
+                    dbg('entered stream')
+                    r.raise_for_status()
+                    dbg('raised for status ended')
+                    size = int(r.headers.get('Content-Length'))
+                    cdhead = r.headers.get('Content-Disposition')
+                    ftype = cdhead.split('.')[-1].split('"')[0]
+                    dbg('content-dispotition:', cdhead, 'file ext:',ftype)
+                    path += '.'+ftype
+                    
+                    with open(path, 'wb') as f:
+                        lasttime = perf_counter()
                         for chunk in r.iter_content(chunk_size=9048):
-                            down += 9048
+                            newtime = perf_counter()
+                            down += len(chunk)
                             f.write(chunk)
-                            cs.print(f'[pink1]Downloading [/pink1] [white bold]{down}/{size}[/]', end='\r')
+                            cs.print(f'[pink1]Downloading [/pink1] [white bold]{format_bytes(down)}/{format_bytes(size)} ({calculate_remaining_time(down, newtime-lasttime, len(chunk), size)})[/]'+rmr, end='\r')
+                            lasttime = perf_counter()
         except Exception as e:
             if e.__class__ is requests.exceptions.HTTPError:
                 cs.print('[red1] ✖  Site errored out, trying again...[/red1]'+rmr)
@@ -154,13 +197,16 @@ for info in selected:
             return downloadit(info)
         return ftype, path
     ftype, path = downloadit(info)
-    dbg(ftype, path)
-    cs.print('[pink1 bold] [ ✓ ] Downloaded [/]'+rmr)
+    dbg(path)
+    cs.print('[pink1 bold] [ ✓ ] Downloaded/got from cache [/]'+rmr)
     if not ftype in supported:
-        cs.print('[pink1 bold]Converting book to mobi...[/]')
+        spin = spinners.Spinner(['[pink1 bold]Converting book to epub...[/]'+'[pink1]'+x+'[/]' for x in spinners.DOTS], '')
+        spin.start()
         mobi = os.path.join(dir_, f'{info[1]} ({info[0]}).epub'.translate({ord(c): None for c in '\\/:*?"\'<>|'}))
         
         subprocess.run(['ebook-convert', path, mobi], stdout=subprocess.PIPE)
+        spin.stop()
+        cs.print('[pink1 bold] [ ✓ ] Converted book to epub [/]')
     else:
         mobi = path
     spin = spinners.Spinner(['[pink1 bold]Zipping[/] '+'[pink1]'+x+'[/]' for x in spinners.DOTS], '')
