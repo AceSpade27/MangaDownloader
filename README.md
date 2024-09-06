@@ -10,11 +10,11 @@ run `$ pip install -r requirements.py`
 
 # how to use
 `$ python main.py`  
-log in and enter the url that is in your address bar after logging in (Send to Kindle page)  
+log in and enter the url that is in your address bar after logging in (Send to Kindle page) (if you havent logged in previously)  
 enter your search query (what you want to search)  
 select the manga you want using space  
 and press enter  
-wait untill the script stops and press "sync" on your kindle's status bar menu
+wait untill the script stops (and until files finish uploading on [https://www.amazon.com/gp/sendtokindle](https://www.amazon.com/gp/sendtokindle)) and press "sync" on your kindle's status bar menu
 
 # license
 MIT
