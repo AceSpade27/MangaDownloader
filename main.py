@@ -2,49 +2,40 @@ import bs4
 import requests
 import os
 from urllib.parse import quote_plus
-from beaupy import select_multiple, spinners, prompt
+from beaupy import select_multiple, spinners
 from rich import console
 import subprocess
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
 import traceback
-import zipfile
 from time import perf_counter
 import sys
-import dotenv
+import stkclient
+import pathlib
+from webbrowser import open as wbopen
+
 rmr = '​'*30
-dotenv.load_dotenv()
-subject = "Kindle book"
-sender = os.getenv('EMAIL_ADDRESS')
-recipient = os.getenv('KINDLE_ADDRESS')
-password = os.getenv('PASSWORD_EMAIL')
-email_server = os.getenv('EMAIL_SERVICE'), int(os.getenv('EMAIL_PORT'))
+cs = console.Console()
+if not os.path.exists('auth.json'):
+    oauth = stkclient.OAuth2()
+    signin_url = oauth.get_signin_url()
+    wbopen(signin_url)
+    cs.print('[pink1]Please login and paste the final url after you logged in[/pink1] [bold white]::[/] ', end='') 
+    redirect = input()
+    client = oauth.create_client(redirect)
+    with open('auth.json', 'w') as f:
+        client.dump(f)
+    cs.print('[pink1 bold] [ ✓ ] Logged in to Amazon [/]')
+else:
+    with open('auth.json', 'r') as f:
+        client = stkclient.Client.load(f)
+    cs.print('[pink1 bold] [ ✓ ] Logged in to Amazon [/]')
 
-def send_email(subject, sender, recipient, password, attachment_path):
-    # Create the email message
-    msg = MIMEMultipart()
-    msg['Subject'] = subject
-    msg['From'] = sender
-    msg['To'] = recipient
+devices = client.get_owned_devices()
+destinations = [d.device_serial_number for d in devices]
 
+def send_book(title, author, attachment_path):
+    book_format = attachment_path.split('.')[-1]
+    client.send_file(pathlib.Path(attachment_path), destinations, author=author, title=title, format=book_format)
 
-    with open(attachment_path, 'rb') as attachment_file:
-        part = MIMEBase('application', 'octet-stream')
-        part.set_payload(attachment_file.read())
-        encoders.encode_base64(part)
-        part.add_header(
-            'Content-Disposition',
-            f'attachment; filename={os.path.split(attachment_path)[-1]}',
-        )
-        msg.attach(part)
-
-    # Send the email
-    with smtplib.SMTP_SSL(*email_server) as smtp_server:
-        smtp_server.login(sender, password)
-        smtp_server.sendmail(sender, recipient, msg.as_string())
 def format_bytes(size):
     # 2**10 = 1024
     power = 2**10
@@ -88,13 +79,15 @@ def search(query: str):
             title = elem.select_one('td:nth-child(2) b').text.strip()
             url = elem.select_one('td:nth-child(2) > a:nth-child(3)').attrs['href']
             series = elem.select_one('td:nth-child(2) > a:nth-child(3)').text.strip()
+            authors = elem.select_one('td:nth-child(3)').text.strip() if elem.select_one('td:nth-child(3)').text.strip() != '' else 'unknown'
 
             if debug: printsep()
             #dbg(f'{cover_url=}')
             dbg(f'{title=}')
             dbg(f'{url=}')
             dbg(f'{series=}')
-            manga.append((series, title, url))
+            dbg(authors)
+            manga.append((series, title, url, authors))
         except AttributeError: continue
     return manga
 def calculate_remaining_time(downloaded, secondstodown, downed, size):
@@ -115,7 +108,6 @@ def calculate_remaining_time(downloaded, secondstodown, downed, size):
     seconds = int(remaining_time_seconds % 60)
 
     return f"{minutes}m {seconds}s"
-cs = console.Console()
 cs.print('[pink1]Enter search query[/pink1] [bold white]::[/] ', end='')
 query = input('')
 
@@ -162,7 +154,6 @@ for info in selected:
                         path = f
                         break
             if not path:
-                path = os.path.join(dir_, f'{info[1]} ({info[0]})'.translate({ord(c): None for c in '\\/:*?"\'<>|'}))
                 cs.print('[pink1]Downloading [/pink1] [white bold]0/0[/] (?m ?s)', end='\r')
                 down = 0
                 
@@ -172,9 +163,11 @@ for info in selected:
                     dbg('raised for status ended')
                     size = int(r.headers.get('Content-Length'))
                     cdhead = r.headers.get('Content-Disposition')
-                    ftype = cdhead.split('.')[-1].split('"')[0]
+                    filename = cdhead.split('"')[1].split('"')[0]
+                    ftype = filename.split('.')[-1]
+                    path = os.path.join('manga', f'{info[1]} ({info[0]}).{ftype}'.translate({ord(c): None for c in '\\/:*?"\'<>|'}))
                     dbg('content-dispotition:', cdhead, 'file ext:',ftype)
-                    path += '.'+ftype
+                    
                     
                     with open(path, 'wb') as f:
                         lasttime = perf_counter()
@@ -208,15 +201,9 @@ for info in selected:
         cs.print('[pink1 bold] [ ✓ ] Converted book to epub [/]')
     else:
         mobi = path
-    spin = spinners.Spinner(['[pink1 bold]Zipping[/] '+'[pink1]'+x+'[/]' for x in spinners.DOTS], '')
+    spin = spinners.Spinner(['[pink1]Sending to kindle[/pink1] '+'[pink1]'+x+'[/]' for x in spinners.DOTS], '')
     spin.start()
-    with zipfile.ZipFile('book.zip', 'w', zipfile.ZIP_DEFLATED, compresslevel=8) as zipf:
-        zipf.write(mobi)
+    send_book(f'{info[1]} ({info[0]})', info[3], mobi)
     spin.stop()
-    cs.print('[pink1 bold] [ ✓ ] Zipped book succesfully[/]')
-    spin = spinners.Spinner(['[pink1]Sending email to Kindle[/pink1] '+'[pink1]'+x+'[/]' for x in spinners.DOTS], '')
-    spin.start()
-    send_email(subject, sender, recipient, password, 'book.zip')
-    spin.stop()
-    cs.print('[pink1 bold] [ ✓ ] Sent email to Kindle![/]')
+    cs.print('[pink1 bold] [ ✓ ] Sent to Kindle![/] [pink1]Check status here: https://www.amazon.com/gp/sendtokindle[/]')
 
