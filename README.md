@@ -7,9 +7,11 @@ just run
 and then change the values in the .env file
 
 # how to use
-python main.py
-enter your search query (what you want to search)
-select the manga you want
-and press enter
-wait untill the script stops
-and press "sync" on your kindle's status bar menu
+`$ python main.py`  
+enter your search query (what you want to search)  
+select the manga you want using space  
+and press enter  
+wait untill the script stops and press "sync" on your kindle's status bar menu
+
+# license
+MIT
